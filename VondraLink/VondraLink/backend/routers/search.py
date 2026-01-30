@@ -1,8 +1,9 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from services.search_service import fast_search
 from services.recommendation_service import get_product_recommendations
+from services.personalized_recommendation_service import get_personalized_recommendations
 from services.user_activity import activity_cache
 
 
@@ -19,6 +20,12 @@ class SearchRequest(BaseModel):
     
 class DescriptionRequest(BaseModel):
     description: str
+
+class PersonalizedRecommendationRequest(BaseModel):
+    """Request model for personalized recommendations based on user profile"""
+    user_id: str = "anonymous"
+    user_profile: Dict[str, Any]  # Profile from questionnaire
+    include_activity: bool = True  # Whether to include user activity in recommendations
 
 def parse_price(price_str: str) -> Optional[float]:
     """
@@ -118,3 +125,38 @@ def clear_user_activity(user_id: str):
     """Clear all activity data for a user"""
     activity_cache.clear_user_data(user_id)
     return {"message": f"Activity data cleared for user {user_id}"}
+
+@router.post("/personalized-recommendations")
+def personalized_recommendations(req: PersonalizedRecommendationRequest):
+    """
+    Get personalized product recommendations based on user profile from questionnaire.
+    
+    This endpoint uses the AI curator to generate search strategies based on:
+    - User demographics (gender, generation)
+    - Wealth signals (shopping philosophy, treat preference)
+    - Lifestyle (archetype, vibe, hobbies)
+    - Optional: User activity (search history, viewed products)
+    
+    Returns a list of recommended products with strategy information.
+    """
+    print(f"📦 Personalized recommendations request for user: {req.user_id}")
+    
+    # Get user activity if requested
+    user_activity = {}
+    if req.include_activity:
+        user_activity = activity_cache.get_user_context(req.user_id)
+        print(f"📊 Including user activity: {user_activity.get('total_searches', 0)} searches, {user_activity.get('total_views', 0)} views")
+    
+    # Get personalized recommendations
+    recommendations = get_personalized_recommendations(
+        user_profile=req.user_profile,
+        user_activity_data=user_activity
+    )
+    
+    print(f"✅ Generated {len(recommendations)} personalized recommendations")
+    
+    return {
+        "user_id": req.user_id,
+        "recommendations": recommendations,
+        "count": len(recommendations)
+    }
