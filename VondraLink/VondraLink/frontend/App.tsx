@@ -418,7 +418,7 @@ const App: React.FC = () => {
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <HomePage userProfile={formState} recommendedProducts={[]} />
+                    <HomePage userProfile={formState} recommendedProducts={[]} userId={userId} />
                   </motion.div>
                 ) : (
                   <motion.div
